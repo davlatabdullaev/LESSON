@@ -1,0 +1,79 @@
+Goroutinelarni bir birini kutishi, qachon yopilishi kabi operatsiyalar kod tomondan nazorat qilinadi va bunda bizga waitgroup va done channellar yordam beradi.
+
+Bu maqolani o’qishdan oldin o’qilish kerak bo’lgan maqola.
+Golang goroutine’da select case haqida batafsil
+Doimiy ishlab turadigan goroutinelarimizni qachon va qanday to’xtatishni select case orqali belgilab qo’ysak bo’ladi.
+medium.com
+
+Goroutinelarning bir qonuni bor agar asosiy goroutine ishlashdan to’xtasa qolgan goroutinelar ham to’xtaydi. Pastdagi kodni misol qilib olsak assosiy goroutinedan MyFunction() goroutineni chiqirgandan so’ng u kerakli habarni ekranga chiqarib o’zi ishlashdan to’xtaydi. Natijada MyFunction() goroutine ishlay olmaydi. Bunga eng yomon yechim sifatida goroutine chaqirilganda so’ng assosiy goroutineni ma’lum muddataga o’xlatib qo’yishni berishimiz mumin. Lekin aytganimay bu yomon yechim. Shunaqa holatlarda biz done channellar yoki waitgroup ishlatishimiz mumkin.
+
+package main
+
+import "fmt"
+
+func main() {
+   go MyFunction()
+   fmt.Println("Assosiy Goroutine ishaldi.")
+}
+
+func MyFunction() {
+   fmt.Println("my function goroutine ishladi")
+}
+Done channellar
+Done channelar ma’lum bir child goroutinega berib yuboriladi va mother goroutineda unga qiymat yozilishi kutiladi. Qachonki child goroutine ishini tugatganda qiymat yozishi yoki channelni yopishi(close qilishi) mumkin.
+
+Pastdagi kodda bo’sh stuct turidagi channel ochildi, chunki bo’sh struct xotiradan umuman joy olmaydi. Channel ikkinchi goroutine funksiyaga argument sifatida beriladi va MyFunction() goroutineda defer orqali done channel yopib qo’yildi va assosiy goroutinening oxirida channeldan ma’lumot o’qilishi kutiladi. Agar ma’lumot kelsa yoki channel yopilsa asosiy goroutine ham o’z ishini to’xtatadi. Shu orqli biz asosiy goroutine child goroutinedan oldin to’xtab qolishining oldini olamiz.
+
+package main
+
+import "fmt"
+
+func main() {
+    done := make(chan struct{})
+    go MyFunction(done)
+    fmt.Println("Assosiy Goroutine ishaldi.")
+    <-done
+}
+
+func MyFunction(done chan struct{}) {
+   defer close(done)
+   fmt.Println("my function goroutine ishladi")
+}
+Waitgroup
+Agar ko’proq goroutinelarni nazorat qilishimiz kerak bo’lsa har biri uchun alohida channel ochib uni nazorat qilish juda qiyin bo’lib ketadi. Shuning uchun Goda waitgroup chiqarilgan, yani bir nechta goroutinlarni bir guruh sifatida olib ularning hammasining ishlab bo’lishini taminlab beradi.
+
+Waitgroupni Golangdagi sync package’i taminlab beradi. Wait groupga goroutinelarning soni qo’shiladi, har bir goroutinening ichida ishlab bo’lganidan keyin tugaganligini bildirish uchun Done() metodi ishlatiladi. Wait() metodi ishlatilganda unga berilgan hamma goroutinelar ishlab bo’lguncha kutadi.
+
+Masalan, pastdagi kodda 10ta goroutine ochdik har bir goroutine ochganda Add() metodiga 1 beramiz chunki waitgroupga yana bitta qo’sh degan manoda. Goroutine funksiyaning ichida ishini bajarib bo’lganda ishlaydigan qilib defer wg.Done() metodini ishlatdik.
+
+package main
+
+import (
+   "fmt"
+   "sync"
+)
+
+func main() {
+   wg := &sync.WaitGroup{}
+
+   for i := 0; i < 10; i++ {
+    wg.Add(1)
+    go MyFunction(wg, i+1)
+   }
+   fmt.Println("Assosiy goroutine ishladi.")
+   wg.Wait()
+   fmt.Println("Hamma goroutinelar ishlab bo'ldi.")
+}
+
+func MyFunction(wg *sync.WaitGroup, goroutineNun int) {
+   defer wg.Done()
+   fmt.Println("my function goroutine ishladi: No", goroutineNun)
+}
+
+tepadagi kodning natijasi.
+Keyin o’qilish kerak bo’lgan maqola
+Golang goroutine, mutex haqida batafsil
+Mutex malum bir o’zgaruvchiga access olishni(o’qish, o’zgartirish) boshqa goroutinelar uchun bloklab qo’ya oladi va…
+medium.com
+
+Oxirigacha o’qiganingiz uchun rahmat. Agar foydali bo’lgan bo’lsa men xursandman. O’zbek tilida shunaqa maqolalarni o’qish uchun follow qilib qo’yishni unutmang.
