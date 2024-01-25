@@ -64,6 +64,15 @@ func (h Handler) GetBasketList(c *gin.Context) {
 		return
 	}
 
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, err = strconv.Atoi(limitStr)
+	if err != nil {
+		handleResponse(c, "error while parsing limit", http.StatusBadRequest, err.Error())
+		return
+	}
+
+
+
 	search = c.Query("search")
 
 	response, err := h.storage.Basket().GetList(models.GetListRequest{
