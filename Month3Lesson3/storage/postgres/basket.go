@@ -1,22 +1,23 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
 	"test/api/models"
 	"test/storage"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type basketRepo struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewBasketRepo(db *sql.DB) storage.IBasketStorage {
+func NewBasketRepo(pool *pgxpool.Pool) storage.IBasketStorage {
 	return &basketRepo{
-		db: db,
+		pool: pool,
 	}
 }
 
@@ -26,7 +27,7 @@ func (b *basketRepo) Create(createBasket models.CreateBasket) (string, error) {
 
 	query := `insert into baskets values ($1, $2, $3)`
 
-	if _, err := b.db.Exec(query, uid, createBasket.CustomerID, createBasket.TotalSum); err != nil {
+	if _, err := b.pool.Exec(context.Background(), query, uid, createBasket.CustomerID, createBasket.TotalSum); err != nil {
 		log.Println("error while inserting data", err.Error())
 		return "", err
 	}
@@ -40,7 +41,7 @@ func (b *basketRepo) GetByID(pKey models.PrimaryKey) (models.Basket, error) {
 
 	query := `select id, customer_id, total_sum from baskets where id = $1`
 
-	err := b.db.QueryRow(query, pKey.ID).Scan(
+	err := b.pool.QueryRow(context.Background(), query, pKey.ID).Scan(
 		&basket.ID,
 		&basket.CustomerID,
 		&basket.TotalSum,
@@ -71,7 +72,7 @@ func (b *basketRepo) GetList(request models.GetListRequest) (models.BasketRespon
 		countQuery += fmt.Sprintf(` and (total_sum ilike '%%%s%%')`, search)
 	}
 
-	if err := b.db.QueryRow(countQuery).Scan(&count); err != nil {
+	if err := b.pool.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
 		fmt.Println("error while scanning count of baskets", err.Error())
 		return models.BasketResponse{}, err
 	}
@@ -85,7 +86,7 @@ func (b *basketRepo) GetList(request models.GetListRequest) (models.BasketRespon
 
 	query += `LIMIT $1 OFFSET $2`
 
-	rows, err := b.db.Query(query, request.Limit, offset)
+	rows, err := b.pool.Query(context.Background(), query, request.Limit, offset)
 	if err != nil {
 		fmt.Println("error while query rows", err.Error())
 		return models.BasketResponse{}, err
@@ -117,7 +118,7 @@ func (b *basketRepo) Update(request models.UpdateBasket) (string, error) {
 
 	query := `update baskets set customer_id = $1, total_sum = $2 where id = $3`
 
-	if _, err := b.db.Exec(query, request.CustomerID, request.TotalSum, request.ID); err != nil {
+	if _, err := b.pool.Exec(context.Background(), query, request.CustomerID, request.TotalSum, request.ID); err != nil {
 		log.Println("error while updating basket data", err.Error())
 		return "", err
 	}
@@ -131,7 +132,7 @@ func (b *basketRepo) Delete(request models.PrimaryKey) error {
 	baskets
 	 where id = $1`
 
-	if _, err := b.db.Exec(query, request.ID); err != nil {
+	if _, err := b.pool.Exec(context.Background(), query, request.ID); err != nil {
 		log.Println("error while deleting basket by id", err.Error())
 		return err
 	}

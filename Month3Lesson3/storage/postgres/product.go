@@ -1,23 +1,24 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
 	"test/api/models"
 	"test/storage"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/lib/pq"
 )
 
 type productRepo struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewProductRepo(db *sql.DB) storage.IProductStorage {
+func NewProductRepo(pool *pgxpool.Pool) storage.IProductStorage {
 	return &productRepo{
-		db: db,
+		pool: pool,
 	}
 }
 
@@ -26,7 +27,7 @@ func (p *productRepo) Create(createProduct models.CreateProduct) (string, error)
 
 	query := `insert into products values ($1, $2, $3, $4, $5, $6)`
 
-	if _, err := p.db.Exec(query, uid, createProduct.Name, createProduct.Price, createProduct.OriginalPrice, createProduct.Quantity, createProduct.CategoryID); err != nil {
+	if _, err := p.pool.Exec(context.Background(), query, uid, createProduct.Name, createProduct.Price, createProduct.OriginalPrice, createProduct.Quantity, createProduct.CategoryID); err != nil {
 		log.Println("error while inserting data", err.Error())
 		return "", err
 	}
@@ -39,7 +40,7 @@ func (p *productRepo) GetByID(pKey models.PrimaryKey) (models.Product, error) {
 
 	query := `select id, name, price, original_price, quantity, category_id from products where id = $1`
 
-	err := p.db.QueryRow(query, pKey.ID).Scan(
+	err := p.pool.QueryRow(context.Background(), query, pKey.ID).Scan(
 		&product.ID,
 		&product.Name,
 		&product.Price,
@@ -74,7 +75,7 @@ func (p *productRepo) GetList(request models.GetListRequest) (models.ProductsRes
 		countQuery += fmt.Sprintf(` and (name ilike '%%%s%%')`, search)
 	}
 
-	if err := p.db.QueryRow(countQuery).Scan(&count); err != nil {
+	if err := p.pool.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
 		fmt.Println("error while scanning count of baskets", err.Error())
 		return models.ProductsResponse{}, err
 	}
@@ -88,7 +89,7 @@ func (p *productRepo) GetList(request models.GetListRequest) (models.ProductsRes
 
 	query += `LIMIT $1 OFFSET $2`
 
-	rows, err := p.db.Query(query, request.Limit, offset)
+	rows, err := p.pool.Query(context.Background(), query, request.Limit, offset)
 	if err != nil {
 		fmt.Println("error while query rows", err.Error())
 		return models.ProductsResponse{}, err
@@ -123,7 +124,7 @@ func (p *productRepo) Update(request models.UpdateProduct) (string, error) {
 
 	query := `update products set name = $1, price = $2, original_price = $3, quantity = $4, category_id = $5 where id = $6`
 
-	if _, err := p.db.Exec(query, request.Name, request.Price, request.OriginalPrice, request.Quantity, request.CategoryID, request.ID); err != nil {
+	if _, err := p.pool.Exec(context.Background(), query, request.Name, request.Price, request.OriginalPrice, request.Quantity, request.CategoryID, request.ID); err != nil {
 		log.Println("error while updating product data", err.Error())
 		return "", err
 	}
@@ -137,7 +138,7 @@ func (p *productRepo) Delete(request models.PrimaryKey) error {
 	products
 	 where id = $1`
 
-	if _, err := p.db.Exec(query, request.ID); err != nil {
+	if _, err := p.pool.Exec(context.Background(), query, request.ID); err != nil {
 		log.Println("error while deleting product by id", err.Error())
 		return err
 	}
@@ -162,7 +163,7 @@ func (p *productRepo) Search(customerProductIDs map[string]int) (map[string]int,
 	query := `  
 	select id, quantity, price, original_price from products where id::varchar = ANY($1)
 	`
-	rows, err := p.db.Query(query, pq.Array(products))
+	rows, err := p.pool.Query(context.Background(), query, pq.Array(products))
 	if err != nil {
 		fmt.Println("Error while getting products by product ids", err.Error())
 		return nil, nil, err
@@ -198,7 +199,7 @@ func (p *productRepo) TakeProduct(products map[string]int) error {
 	update products set quantity = quantity - $1 where id = $2
 	`
 	for productID, quantity := range products {
-		if _, err := p.db.Exec(query, quantity, productID); err != nil {
+		if _, err := p.pool.Exec(context.Background(), query, quantity, productID); err != nil {
 			fmt.Println("error while updating product quantity", err.Error())
 			return err
 		}

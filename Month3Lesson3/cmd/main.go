@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"test/api"
 	"test/config"
@@ -8,20 +9,18 @@ import (
 )
 
 func main() {
-
 	cfg := config.Load()
 
-	store, err := postgres.New(cfg)
+	pgStore, err := postgres.New(context.Background(), cfg)
 	if err != nil {
-		log.Fatalln("error while connecting to db err: ", err.Error())
+		log.Fatalln("error while connecting to db err:", err.Error())
 		return
 	}
-	defer store.Close()
+	defer pgStore.Close()
 
-	server := api.New(store)
+	server := api.New(pgStore)
 
 	if err = server.Run("localhost:8080"); err != nil {
 		panic(err)
 	}
-
 }

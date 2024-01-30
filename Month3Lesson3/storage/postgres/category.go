@@ -1,22 +1,23 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
 	"test/api/models"
 	"test/storage"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type categoryRepo struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewCategoryRepo(db *sql.DB) storage.ICategoryStorage {
+func NewCategoryRepo(pool *pgxpool.Pool) storage.ICategoryStorage {
 	return &categoryRepo{
-		db: db,
+		pool: pool,
 	}
 }
 
@@ -24,7 +25,7 @@ func (c *categoryRepo) Create(request models.CreateCategory) (string, error) {
 
 	uid := uuid.New()
 
-	if _, err := c.db.Exec(`insert into categories values ($1, $2)`,
+	if _, err := c.pool.Exec(context.Background(), `insert into categories values ($1, $2)`,
 		uid,
 		request.Name,
 	); err != nil {
@@ -42,7 +43,7 @@ func (c *categoryRepo) GetByID(pKey models.PrimaryKey) (models.Category, error) 
 
 	query := `select id, name from categories where id = $1`
 
-	if err := c.db.QueryRow(query, pKey.ID).Scan(
+	if err := c.pool.QueryRow(context.Background(), query, pKey.ID).Scan(
 		&category.ID,
 		&category.Name,
 	); err != nil {
@@ -73,7 +74,7 @@ func (c *categoryRepo) GetList(request models.GetListRequest) (models.Categories
 
 	}
 
-	if err := c.db.QueryRow(countQuery).Scan(&count); err != nil {
+	if err := c.pool.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
 		fmt.Println("error while scanning count of categories", err.Error())
 		return models.CategoriesResponse{}, err
 	}
@@ -89,7 +90,7 @@ func (c *categoryRepo) GetList(request models.GetListRequest) (models.Categories
 
 	query += ` LIMIT $1 OFFSET $2`
 
-	rows, err := c.db.Query(query, request.Limit, offset)
+	rows, err := c.pool.Query(context.Background(), query, request.Limit, offset)
 	if err != nil {
 		fmt.Println("error while query rows", err.Error())
 		return models.CategoriesResponse{}, err
@@ -120,7 +121,7 @@ func (c *categoryRepo) Update(request models.Category) (string, error) {
 
 	query := ` update categories set name = $1 where id = $2`
 
-	if _, err := c.db.Exec(query, request.Name, request.ID); err != nil {
+	if _, err := c.pool.Exec(context.Background(), query, request.Name, request.ID); err != nil {
 		fmt.Println("error while updating category data", err.Error())
 		return "", err
 	}
@@ -136,7 +137,7 @@ func (c *categoryRepo) Delete(request models.PrimaryKey) error {
 	id = $1
 	`
 
-	if _, err := c.db.Exec(query, request.ID); err != nil {
+	if _, err := c.pool.Exec(context.Background(), query, request.ID); err != nil {
 		fmt.Println("error while deleting category by id", err.Error())
 		return err
 	}

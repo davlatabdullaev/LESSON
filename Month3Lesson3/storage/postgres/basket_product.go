@@ -1,20 +1,23 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"test/api/models"
 	"test/storage"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type basketProductRepo struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-func NewBasketProductRepo(db *sql.DB) storage.IBasketProductStorage {
-	return basketProductRepo{db: db}
+func NewBasketProductRepo(pool *pgxpool.Pool) storage.IBasketProductStorage {
+	return basketProductRepo{
+		pool: pool,
+	}
 }
 
 func (b basketProductRepo) Create(product models.CreateBasketProduct) (string, error) {
@@ -23,7 +26,7 @@ func (b basketProductRepo) Create(product models.CreateBasketProduct) (string, e
 					values($1, $2, $3, $4)`
 
 	fmt.Println("id", id)
-	if _, err := b.db.Exec(query,
+	if _, err := b.pool.Exec(context.Background(), query,
 		id,
 		product.BasketID,
 		product.ProductID,
@@ -38,7 +41,7 @@ func (b basketProductRepo) GetByID(key models.PrimaryKey) (models.BasketProduct,
 	product := models.BasketProduct{}
 	query := `select id, basket_id, product_id, quantity from basket_products where id = $1`
 
-	if err := b.db.QueryRow(query, key.ID).Scan(
+	if err := b.pool.QueryRow(context.Background(), query, key.ID).Scan(
 		&product.ID,
 		&product.BasketID,
 		&product.ProductID,
@@ -65,7 +68,7 @@ func (b basketProductRepo) GetList(request models.GetListRequest) (models.Basket
 		countQuery += fmt.Sprintf(` where CAST(quantity AS TEXT) ilike '%%%s%%'`, search)
 	}
 
-	if err := b.db.QueryRow(countQuery).Scan(&count); err != nil {
+	if err := b.pool.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
 		fmt.Println("error is while scanning count", err.Error())
 		return models.BasketProductResponse{}, err
 	}
@@ -76,7 +79,7 @@ func (b basketProductRepo) GetList(request models.GetListRequest) (models.Basket
 	}
 
 	query += ` LIMIT $1 OFFSET $2`
-	rows, err := b.db.Query(query, request.Limit, offset)
+	rows, err := b.pool.Query(context.Background(), query, request.Limit, offset)
 	if err != nil {
 		fmt.Println("error is while selecting basket products", err.Error())
 		return models.BasketProductResponse{}, err
@@ -99,7 +102,7 @@ func (b basketProductRepo) GetList(request models.GetListRequest) (models.Basket
 
 func (b basketProductRepo) Update(product models.UpdateBasketProduct) (string, error) {
 	query := `update basket_products set basket_id = $1, product_id = $2, quantity = $3 where id = $4`
-	if _, err := b.db.Exec(query,
+	if _, err := b.pool.Exec(context.Background(), query,
 		&product.BasketID,
 		&product.ProductID,
 		&product.Quantity,
@@ -114,7 +117,7 @@ func (b basketProductRepo) Update(product models.UpdateBasketProduct) (string, e
 func (b basketProductRepo) Delete(key models.PrimaryKey) error {
 	query := `delete from basket_products where id = $1`
 
-	if _, err := b.db.Exec(query, key.ID); err != nil {
+	if _, err := b.pool.Exec(context.Background(), query, key.ID); err != nil {
 		fmt.Println("error is while deleting basket products", err.Error())
 		return err
 	}
@@ -128,7 +131,7 @@ func (b basketProductRepo) AddProducts(basketID string, products map[string]int)
 	values ($1, $2, $3, $4)
 	`
 	for productID, quantity := range products {
-		if _, err := b.db.Exec(query, uuid.New(), basketID, productID, quantity); err != nil {
+		if _, err := b.pool.Exec(context.Background(), query, uuid.New(), basketID, productID, quantity); err != nil {
 			fmt.Println("error while adding product to basketProduct table", err.Error())
 			return err
 		}
