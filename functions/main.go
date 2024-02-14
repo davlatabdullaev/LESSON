@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
-	"test/closurefunction"
+	"test/factorial"
 )
 
 func main() {
 	// fmt.Println(otherFunc(2,3,4))
 
-	add := closurefunction.Calculator()
+	// add := closurefunction.Calculator()
 
-	result := add(2, 3)
+	// result := add(2, 3)
 
-	fmt.Println(result)
+	// fmt.Println(result)
+
+	a := factorial.Factorial(5)
+	fmt.Println(a)
 
 }
 
