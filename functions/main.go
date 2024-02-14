@@ -5,6 +5,11 @@ import (
 	"test/factorial"
 )
 
+func init() {
+	fmt.Println("init func ishga tushdi")
+}
+
+
 func main() {
 	// fmt.Println(otherFunc(2,3,4))
 
