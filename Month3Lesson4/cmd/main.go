@@ -1000,10 +1000,11 @@ func (s *saleRepo) Delete(ctx context.Context, id string) error {
 		return err
 	}
 
+	
 	return nil
 }
 
-func (s *saleRepo) UpdateSalePrice(ctx context.Context, request models.SaleRequest) (string, error) {
+func (s *saleRepo)   UpdateSalePrice(ctx context.Context, request models.SaleRequest) (string, error) {
 
 	query := `update sale set 
   price = $1,
