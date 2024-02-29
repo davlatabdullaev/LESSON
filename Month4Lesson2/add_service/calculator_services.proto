@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package calculator_services;
+
+option go_package = "calculator_services";
+
+service CalculatorServices {
+    rpc Calculate(CreateNumber) returns (Result) {}
+    rpc Get(PrimaryKey) returns (Result) {}
+   } 
+
+message CreateNumber {
+    int32 FirstNumber = 1;
+    int32 SecondNumber = 2;
+}
+
+message Result {
+    int32 result = 1;
+}
+
+
+message PrimaryKey {
+    string id = 1;
+  }
